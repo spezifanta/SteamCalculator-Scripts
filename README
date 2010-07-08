@@ -6,9 +6,8 @@ Projects:   http://www.steamcalculator.com
             http://www.steamprices.com
 
 
-SteamCalculator Scripts is written in PERL and its task it it to parse 
-Valve's Steam store and save all information from their website by
-storing them in a MySQL database.
+SteamCalculator Scripts is written in PERL and will parse Valve's Steam
+store to save all information to a MySQL database.
 
 If you are not a developer or planing to create a new project, that 
 might want to use the data these scripts provide, this software might be

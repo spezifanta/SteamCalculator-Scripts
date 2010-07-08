@@ -1,0 +1,19 @@
+20-07-08: version 0.3.2
+
+* fixed broken appIDs, caused by inconsistent HTML
+* fixed game titles containing HTML tags
+* updated layout
+* added error log
+* added new column "no" and "pl" to sc_steamprices
+* optimized sc_steamprices
+
+
+2010-03-07: version 0.3.1
+
+* increased parsing speed by 50%(!) - Big thanks to nova (http://www.steamprices.com)
+* added new column "flags" to sc_steamgames
+* fixed dates bying displayed wrong when Valve's date was incomplete or not available
+
+2010-03-01: version 0.3.0
+
+* initial release

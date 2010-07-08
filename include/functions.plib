@@ -1,0 +1,206 @@
+#!/usr/bin/perl -w
+#
+#   $Id: functions.plib 3 2010-03-02 16:56:48Z alex@steamcalculator.com $
+#
+#   SteamCalculator Scripts - http://www.steamcalculator.com
+#   Copyright (C) 2010 Alexander Kuhrt (alex@steamcalculator.com)
+#
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+use strict;
+use POSIX;
+Data::Dumper;
+
+sub trim($)
+{
+    my $string = shift;
+    
+    $string =~ s/^\s+//;
+    $string =~ s/\s+$//;
+    
+    return $string;
+}
+
+sub cutter(@)
+{
+    my ($content, $startTag, $endTag) = @_;
+    my $startPos;
+    my $endPos;
+    my $temp;
+
+    $content    = trim($content);
+    $startPos   = index($content, $startTag) + length($startTag);
+    $temp       = substr($content, $startPos);
+    $endPos     = index($temp, $endTag);
+
+    return trim(substr($content, $startPos, $endPos));
+}
+
+sub formPrice($)
+{
+    my $price = shift;
+
+    if($price =~ m/(\d+)(?:\.|,)(\d{2})/)
+    {
+        return $1.$2;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+sub formTitle($)
+{
+    my $title = shift;
+    $title =~ s/<[^>]*>//gs;
+    return $title;
+}
+
+sub formDate($;$)
+{
+    my $date = shift;
+    my $country = shift;
+    
+    if (length($date) < 1)
+    {
+        return 0;
+    }
+    
+    my @pice    = split(/\s/, $date);
+    my $day     = 0;
+    my $month   = 0;
+    my $year    = 0;
+
+    if(@pice < 3)
+    {
+        return 0;
+    }
+
+    if($country eq "us")
+    {
+        $month  = $pice[0];
+        $day    = substr($pice[1], 0, -1);
+        $year   = $pice[2];
+    }
+    else
+    {
+        $day    = $pice[0];
+        $month  = $pice[1];
+        $year   = $pice[2]; 
+    }
+
+    #print "\n\n======== $year - $month - $day \n";
+
+    if($month eq "January" || $month eq "Jan")
+    {
+        $month = 0;  
+    }
+    elsif($month eq "February" || $month eq "Feb")
+    {
+        $month = 1;  
+    }
+    elsif($month eq "March" || $month eq "Mar")
+    {
+        $month = 2;  
+    }
+    elsif ($month eq "April" || $month eq "Apr")
+    {
+        $month = 3;  
+    }
+    elsif($month eq "May")
+    {
+        $month = 4;  
+    }
+    elsif($month eq "June" || $month eq "Jun")
+    {
+        $month = 5;  
+    }
+    elsif ($month eq "July" || $month eq "Jul")
+    {
+        $month = 6;  
+    }
+    elsif($month eq "August" || $month eq "Aug")
+    {
+        $month = 7;  
+    }
+    elsif($month eq "September" || $month eq "Sep")
+    {
+        $month = 8;  
+    }
+    elsif($month eq "October" || $month eq "Oct")
+    {
+        $month = 9;  
+    }
+    elsif($month eq "November" || $month eq "Nov")
+    {
+        $month = 10;  
+    }
+    elsif($month eq "December" || $month eq "Dec")
+    {
+        $month = 11;  
+    }
+
+    # fixing mktime 
+    # year 2001 would be 101 and January starts at 0 - google 'man mktime' for more details
+    $year -= 1900;
+
+    return mktime(0, 0, 0, $day, $month, $year);
+}
+
+sub date($$)
+{
+    my $format  = shift;
+    my $time    = shift;
+    
+    if(!$time)
+    {
+        return 0;
+    }
+    
+    return strftime($format, gmtime($time + 60*60*24)); # TODO: fix this
+}
+
+sub regExDate($$)
+{
+    my $date    = shift;
+    my $country = shift;
+
+    if($country eq "us")
+    {
+        # format: Mar 1, 2010
+        if($date =~ m/\s*((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d+,\s\d{4})\s*/)
+        {
+            return $1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    else
+    {
+        # format: 1 Mar 2010
+        if($date =~ m/\s*(\d+\s(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{4})\s*/)
+        {
+            return $1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+}
+

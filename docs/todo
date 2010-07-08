@@ -1,0 +1,7 @@
+* comment code ;)
+* add options
+  - no output
+  - clear database
+  - specific log file name
+* log errors
+* fix date showing 0 when only the release DAY (month and year given) is missing

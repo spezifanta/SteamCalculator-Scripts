@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #
-#   $Id: getGames.pl 3 2010-03-02 16:56:48Z alex@steamcalculator.com $
+#   $Id: getGames 3 2010-03-02 16:56:48Z alex@steamcalculator.com $
 #
 #   SteamCalculator Scripts - http://www.steamcalculator.com
 #   Copyright (C) 2010 Alexander Kuhrt (alex@steamcalculator.com)
@@ -19,25 +19,106 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+require 5.8.0;
+
 use strict;
 use DBI;
 use LWP::Simple;
 use POSIX qw(ceil strftime);
-use Term::ANSIColor;
 use Time::HiRes;
-binmode(STDOUT, ":utf8");
 use IO::Handle;
+use Getopt::Long;
+binmode(STDOUT, ":utf8");
+
+# Print usage of getGames
+sub printUsage()
+{
+  printf STDOUT ("Usage: getGames [OPTIONS]\n");
+  printf STDOUT ("Grabs all games form Valve's Steam store\n\n");
+  printf STDOUT ("Options:\n");
+  printf STDOUT ("  \t--clear\t\tClear database\n");
+  printf STDOUT ("  -d\t--debug\t\tCreate debug.log\n");
+  printf STDOUT ("  -h\t--help\t\tShow this help\n");
+  printf STDOUT ("  -o\t--output-file <file> Redirect output to file\n");
+  printf STDOUT ("  -q\t--quiet\t\tSuppress output\n");
+  printf STDOUT ("  \t--version\tShow current version\n");
+  exit(1);
+}
+
+# Print information about getGames
+sub printVersion()
+{
+  printf STDOUT ("getGames 0.3.3\n");
+  printf STDOUT ("Copyright (C) 2010 Free Software Foundation, Inc.\n");
+  printf STDOUT ("License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n");
+  printf STDOUT ("This is free software: you are free to change and redistribute it.\n");
+  printf STDOUT ("There is NO WARRANTY, to the extent permitted by law.\n\n");
+  printf STDOUT ("Written by Alexander Kuhrt.\n");
+  exit(1);
+}
+
+# Suppress output
+sub printQuiet($)
+{
+  my $outputFile = shift;
+
+  if($outputFile ne 0)
+  {
+    # redirect STDOUT to $outputFile
+    open(OUTPUTFILE, ">", $outputFile) or die $!;
+    STDOUT->fdopen(\*OUTPUTFILE, "w") or die $!;
+  }
+  else
+  {
+    # Linux, Mac
+    if($^O !~ m/Win32/i)
+    {
+      # redirect STDOUT to /dev/null
+      open(DEVNULL, ">", "/dev/null") or die $!;
+      STDOUT->fdopen(\*DEVNULL, 'w') or die $!;
+    }
+    # Windows
+    else
+    {
+      # TOOD: anyone?
+    }
+  }
+}
+
+# Declare options
+my $clear = 0;
+my $debug = 0;
+my $help = 0;
+my $outputFile = 0;
+my $quiet = 0;
+my $version = 0;
+
+my @options = (
+    "clear" => \$clear,
+    "d|debug" => \$debug,
+    "h|help|?" => \$help,
+    "o|output-file=s" => \$outputFile,
+    "q|quiet" => \$quiet,
+    "version" => \$version
+);
+
+# Grab options
+GetOptions(@options) or exit(1);
+
+# Test options
+printUsage() if $help;
+printVersion() if $version;
+printQuiet($outputFile) if $quiet || $outputFile;
 
 open ERROR,  '>', "error.txt"  or die $!;
 STDERR->fdopen( \*ERROR,  'w' ) or die $!;
 
-
+# Include stuff
 require "./include/Simple.pm";
 do "./include/functions.plib";
 
 my $configFile = "./include/config.ini";
 
-### NO NEED TO CHANGE ANYTHING BELOW HERE ###
 
 my @countries = ('at', 'au', 'de', 'no', 'pl', 'uk', 'us');
 my $start = [Time::HiRes::gettimeofday()];
@@ -46,12 +127,14 @@ my $db_user;
 my $db_pass;
 my $db_name;
 
-system $^O eq 'MSWin32' ? 'cls' : 'clear';
-print "Staring SteamCalculator's 'getgames' Script ...\n\n";
+logging("Staring SteamCalculator's 'getGames' Script...\n");
+logging("Reading config file... ");
 
 # read config file
 if($configFile && -r $configFile)
 {
+    printf("[OK]\n");
+
     my $conf = ConfigReader::Simple->new($configFile);
     $conf->parse();
 
@@ -62,22 +145,35 @@ if($configFile && -r $configFile)
 }
 else
 {
+    printf("[FAILED]");
     die("-- Warning: unable to open configuration file '$configFile'\n");
 }
 
-print "-- Connecting to MySQL database '$db_name' on '$db_host' as user '$db_user' ... ";
+logging("Connecting to MySQL database '$db_name' on '$db_host' as user '$db_user'... ");
 
 my $db = DBI->connect("DBI:mysql:$db_name:$db_host", $db_user, $db_pass) or die("\nCan't connect to MySQL database '$db_name' on '$db_host'\nServer error: $DBI::errstr\n");
 
-print "connected [OK]\n";
+printf("connected [OK]\n");
 
-my $reloadhack = 0;
+# Clear database befor fillig it again
+if($clear)
+{
+    logging("Cleaning MySQL database\n");
+
+    my $query = "TRUNCATE TABLE `sc_steamgames`";
+    my $stmt = $db->prepare($query);
+    $stmt->execute() or die $!;
+
+    $query = "TRUNCATE TABLE `sc_steamgameprices";
+    $stmt = $db->prepare($query);
+    $stmt->execute();
+}
 
 for(my $c = 0; $c < @countries; $c++)
 {
     my $country         = $countries[$c];
 
-    print "-- Connecting to '$country' Steam Store ... "; # TODO: add timeout!
+    logging("Connecting to '$country' Steam Store... "); # TODO: add timeout!
 
     my $steamStoreURL   = "http://store.steampowered.com/search/results?sort_by=Name&sort_order=ASC&category1=998&cc=$country&v5=1&page=1";
     my $pageContent     = get($steamStoreURL);
@@ -89,36 +185,25 @@ for(my $c = 0; $c < @countries; $c++)
 
     my %game;
 
-    print "found $totalEntries Game Entries on $totalPages Pages [OK]";
+    printf("found $totalEntries Game Entries on $totalPages Pages [OK]\n\n");
 
     for (my $page = 1; $page < $totalPages + 1; $page++)
     #for(my $page = 1; $page < 2; $page++)  # use for debugging
     {
-        printf("\n\n");
-        printf("\x{2554}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2557}\n");
-        printf("\x{2551}                                                                                \x{2551} \n");
-        printf("\x{2551}   Loading '$country', page %s of %02d                                                  \x{2551} \n", colored(sprintf("%02d", $page), "white", "BOLD"), $totalPages);
-        printf("\x{2551}   Entries % 4d - % 4d of %d                                                  \x{2551} \n", (($page - 1) * $gamesPerPage + 1), ($page * $gamesPerPage), $totalEntries);
-        printf("\x{2551}                                                                                \x{2551} \n");
-        printf("\x{255A}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{2550}\x{255D}\n");
-        printf("\n");
-        printf("+-----+---------+---------+-------------+----------------------------------------+\n");
-        printf("|  #  |  AppID  |  Price  |   Release   |               Game Title               |\n");
-        printf("+-----+---------+---------+-------------+----------------------------------------+\n");
+        printf("\x{2554}%s\x{2557}\n", "\x{2550}" x 78);
+        printf("\x{2551}                                                                              \x{2551}\n");
+        printf("\x{2551}   Loading '$country', page %02d of %02d                                                \x{2551}\n", $page, $totalPages);
+        printf("\x{2551}   Entries % 4d - % 4d of %d                                                \x{2551}\n", (($page - 1) * $gamesPerPage + 1), ($page * $gamesPerPage), $totalEntries);
+        printf("\x{2551}                                                                              \x{2551}\n");
+        printf("\x{255A}%s\x{255D}\n", "\x{2550}" x 78);
+        printf("+---------+---------+-------------+--------------------------------------------+\n");
+        printf("|  AppID  |  Price  |   Release   |                 Game Title                 |\n");
+        printf("+---------+---------+-------------+--------------------------------------------+\n");
 
         my $gameCount      = ($page - 1) * $gamesPerPage + 1;
         my $tempCursorPos  = 0;
-
-        GETPAGE:
-
         my $pageContent    = get("http://store.steampowered.com/search/results?sort_by=Name&sort_order=ASC&category1=998&cc=$country&v5=1&page=$page");
         my $tempContent    = cutter($pageContent, '<!-- List Items -->', '<!-- End List Items -->');
-
-        if(!$tempContent =~ m/<!-- List Items -->/)
-        {
-            $reloadhack++;
-            goto GETPAGE;
-        }
 
         for(my $i = $gameCount; $i < ($gameCount + $gamesPerPage); $i++)
         {
@@ -135,11 +220,10 @@ for(my $c = 0; $c < @countries; $c++)
             $tempCursorPos = index($tempContent, "<div style=\"clear: both;\"></div>") + length("<div style=\"clear: both;\"></div>");
 
             # print result
-            printf("|% 4d |", $i);
-            printf("% 8s |", $game{"appID"}[$i]);
+            printf("|% 8s |", $game{"appID"}[$i]);
             printf("% 8.2f |", $game{"price"}[$i] / 100);
             printf("% 12s |", date("%Y-%b-%d", $game{"release"}[$i]));
-            printf(" %s%".(39 - length(substr($game{"title"}[$i], 0, 38)))."s|\n", substr($game{"title"}[$i], 0, 38), " ");
+            printf(" %s%".(43 - length(substr($game{"title"}[$i], 0, 43)))."s|\n", substr($game{"title"}[$i], 0, 42), " ");
 
             if($i == $totalEntries)
             {
@@ -148,7 +232,7 @@ for(my $c = 0; $c < @countries; $c++)
         }
 
         BREAK:
-        print "+-----+---------+---------+-------------+----------------------------------------+\n";
+        printf("+---------+---------+-------------+--------------------------------------------+\n\n");
     }
 
     # add games to database
@@ -205,9 +289,4 @@ $stmt->execute();
 
 $db->disconnect;
 
-print "Had to reload $reloadhack times.\n";
-print "Elapsed time: ".Time::HiRes::tv_interval($start)."seconds\n";
-
-#Todo
-#TRUNCATE TABLE `sc_steamgames`
-#TRUNCATE TABLE `sc_steamgameprices` 
+printf("Elapsed time: ".Time::HiRes::tv_interval($start)."seconds\n");

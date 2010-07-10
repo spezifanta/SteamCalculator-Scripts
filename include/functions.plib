@@ -21,7 +21,17 @@
 
 use strict;
 use POSIX;
-Data::Dumper;
+
+sub theTime()
+{
+    return strftime("%Y-%m-%d %H:%M:%S", localtime);
+}
+
+sub logging($)
+{
+    my $logMessage = shift;
+    printf("[%s] %s", theTime(), $logMessage);
+}
 
 sub trim($)
 {
@@ -102,7 +112,7 @@ sub formDate($;$)
         $year   = $pice[2]; 
     }
 
-    #print "\n\n======== $year - $month - $day \n";
+    # "\n\n======== $year - $month - $day \n";
 
     if($month eq "January" || $month eq "Jan")
     {
@@ -203,4 +213,3 @@ sub regExDate($$)
         }
     }
 }
-

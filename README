@@ -6,23 +6,26 @@ Projects:   http://www.steamcalculator.com
             http://www.steamprices.com
 
 
-SteamCalculator Scripts is written in PERL and will parse Valve's Steam
+SteamCalculator Scripts is written in Perl and will parse Valve's Steam
 store to save all information to a MySQL database.
 
-If you are not a developer or planing to create a new project, that 
+If you are not a developer or planing to create a new project, that
 might want to use the data these scripts provide, this software might be
 no use for you.
 
-Otherwise, install PERL und MySQL (do not forget the DBI package), 
-import steamclculator-scripts.sql, edit config.ini to your needs and run 
-getGames.pl.
+Otherwise, install Perl (5.8.0 or later) und MySQL (do not forget the
+DBI package), import steamclculator-scripts.sql, edit include/config.ini
+to your needs and run getGames.
 
-For any (serious) help, questions, suggestions or feedback, please visit
+For any (serious) help, questions, suggestions, feedback or contributions
+please visit
 
     http://github.com/spezifanta/SteamCalculator-Scripts
 
 or write an email to
 
     alex@steamcalculator.com
+
+To contribute, start forking.
 
 Thank you.
